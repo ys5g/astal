@@ -11,8 +11,9 @@
     system = "x86_64-linux"; # TODO: other architectures
     pkgs = nixpkgs.legacyPackages.${system};
 
-    mkPkg = name: src: inputs:
+    mkPkg = pname: src: inputs:
       pkgs.stdenv.mkDerivation {
+        inherit pname src;
         nativeBuildInputs = with pkgs; [
           wrapGAppsHook
           gobject-introspection
@@ -24,9 +25,7 @@
           wayland-scanner
         ];
         propagatedBuildInputs = [pkgs.glib] ++ inputs;
-        pname = name;
         version = readVer "${src}/version";
-        src = src;
         outputs = ["out" "dev"];
       };
   in {
@@ -47,6 +46,7 @@
 
       io = mkPkg "astal" ./lib/astal/io [];
       astal3 = mkPkg "astal" ./lib/astal/gtk3 [self.packages.${system}.io gtk3 gtk-layer-shell];
+      astal4 = mkPkg "astal" ./lib/astal/gtk4 [self.packages.${system}.io gtk4 gtk4-layer-shell];
       apps = mkPkg "astal-apps" ./lib/apps [json-glib];
       auth = mkPkg "astal-auth" ./lib/auth [pam];
       battery = mkPkg "astal-battery" ./lib/battery [json-glib];
