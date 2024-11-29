@@ -183,6 +183,12 @@ in
         version = ../lib/greet/version;
       }}
       ${genLib {
+        flakepkg = "http";
+        gir = "Http";
+        description = "Libsoup 3 wrapper";
+        version = ../lib/http/version;
+      }}
+      ${genLib {
         flakepkg = "hyprland";
         gir = "Hyprland";
         description = "IPC client for Hyprland";
