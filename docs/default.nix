@@ -2,23 +2,20 @@
   self,
   pkgs,
 }: let
-  inherit (builtins) replaceStrings readFile;
-  readVer = file: replaceStrings ["\n"] [""] (readFile file);
-
   toTOML = (pkgs.formats.toml {}).generate;
 
   docgen = pkgs.gi-docgen.overrideAttrs {
     patches = [../nix/doc/gi-docgen.patch];
   };
 
+  process = import ../nix/processPkg.nix self pkgs;
+
   genLib = {
     flakepkg,
     gir,
-    version,
     api-ver ? "0.1",
     authors ? "Aylur",
     dependencies ? {},
-    out ? "libastal/${flakepkg}",
     browse ? flakepkg,
     website ? flakepkg,
   }: let
@@ -29,8 +26,8 @@
     data = toTOML gir {
       library = {
         inherit authors;
+        inherit (pkg) version;
         inherit (pkg.meta) description;
-        version = readVer version;
         license = "LGPL-2.1";
         browse_url = "https://github.com/Aylur/astal/tree/main/lib/${browse}";
         repository_url = "https://github.com/aylur/aylur.git";
@@ -38,14 +35,21 @@
         dependencies = ["GObject-2.0"] ++ (builtins.attrNames dependencies);
       };
 
-      extra.urlmap_file = "urlmap.js";
+      extra.urlmap_file = urlmap;
       dependencies = {inherit (dependency) "GObject-2.0";} // dependencies;
     };
-  in ''
-    mkdir -p $out/${out}
-    cat ${urlmap} > urlmap.js
+  in pkgs.runCommand flakepkg
+  {
+    nativeBuildInputs = with pkgs; (process (import pkg.src)).libDeps ++ [
+      docgen
+      glib
+      gobject-introspection
+    ];
+  } 
+  ''
+    mkdir $out
     gi-docgen generate -C ${data} ${src}/share/gir-1.0/${name}.gir
-    cp -r ${name}/* $out/${out}
+    cp -r ${name}/* $out
   '';
 
   dependency = {
@@ -96,131 +100,103 @@
       ["WP" "https://pipewire.pages.freedesktop.org/wireplumber/"]
     ]}
   '';
+  # Modified from linkFarmFromDrvs in nixpkgs
+  link = name: drvs:
+    let convertLib = lib: { name = "libastal/${lib.name}"; path = lib; };
+    in pkgs.linkFarm name (map convertLib drvs);
 in
-  pkgs.stdenvNoCC.mkDerivation {
-    name = "reference";
-    src = ./.;
-
-    nativeBuildInputs = with pkgs; [
-      docgen
-      glib
-      json-glib
-      gobject-introspection
-      gtk3
-      gtk4
-      gtk-layer-shell
-      gtk4-layer-shell
-      gdk-pixbuf
-      libdbusmenu-gtk3
-      wireplumber
-      networkmanager
-      self.packages.${system}.io
-    ];
-
-    installPhase = ''
-      runHook preInstall
-      ${genLib {
-        flakepkg = "io";
-        gir = "IO";
-        api-ver = "0.1";
-        browse = "astal/io";
-        version = ../lib/astal/io/version;
-      }}
-      ${genLib {
-        flakepkg = "astal3";
-        gir = "";
-        api-ver = "3.0";
-        browse = "astal/gtk3";
-        version = ../lib/astal/gtk3/version;
-        dependencies = {inherit (dependency) "AstalIO-0.1" "Gtk-3.0";};
-      }}
-      ${genLib {
-        flakepkg = "astal4";
-        gir = "";
-        api-ver = "4.0";
-        browse = "astal/gtk4";
-        version = ../lib/astal/gtk4/version;
-        dependencies = {inherit (dependency) "AstalIO-0.1" "Gtk-4.0";};
-      }}
-      ${genLib {
-        flakepkg = "apps";
-        gir = "Apps";
-        version = ../lib/apps/version;
-      }}
-      ${genLib {
-        flakepkg = "auth";
-        gir = "Auth";
-        authors = "kotontrion";
-        version = ../lib/auth/version;
-      }}
-      ${genLib {
-        flakepkg = "battery";
-        gir = "Battery";
-        version = ../lib/battery/version;
-      }}
-      ${genLib {
-        flakepkg = "bluetooth";
-        gir = "Bluetooth";
-        version = ../lib/bluetooth/version;
-      }}
-      ${genLib {
-        flakepkg = "cava";
-        gir = "Cava";
-        version = ../lib/cava/version;
-        authors = "kotontrion";
-      }}
-      ${genLib {
-        flakepkg = "greet";
-        gir = "Greet";
-        version = ../lib/greet/version;
-      }}
-      ${genLib {
-        flakepkg = "hyprland";
-        gir = "Hyprland";
-        version = ../lib/hyprland/version;
-      }}
-      ${genLib {
-        flakepkg = "mpris";
-        gir = "Mpris";
-        version = ../lib/mpris/version;
-      }}
-      ${genLib {
-        flakepkg = "network";
-        gir = "Network";
-        version = ../lib/network/version;
-        dependencies = {inherit (dependency) "NM-1.0";}; # FIXME: why does this not work?
-      }}
-      ${genLib {
-        flakepkg = "notifd";
-        gir = "Notifd";
-        version = ../lib/notifd/version;
-      }}
-      ${genLib {
-        flakepkg = "powerprofiles";
-        gir = "PowerProfiles";
-        version = ../lib/powerprofiles/version;
-      }}
-      ${genLib {
-        flakepkg = "river";
-        gir = "River";
-        version = ../lib/river/version;
-        authors = "kotontrion";
-      }}
-      ${genLib {
-        flakepkg = "tray";
-        gir = "Tray";
-        version = ../lib/tray/version;
-        authors = "kotontrion";
-      }}
-      ${genLib {
-        flakepkg = "wireplumber";
-        gir = "Wp";
-        version = ../lib/wireplumber/version;
-        authors = "kotontrion";
-        dependencies = {inherit (dependency) "WP-0.5";}; # FIXME: why does this not work?
-      }}
-      runHook postInstall
-    '';
-
-    meta.description = "Documentation for all libraries generated by gi-docgen";
-  }
+(link "reference" (with pkgs; [
+  (genLib {
+    flakepkg = "io";
+    gir = "IO";
+    api-ver = "0.1";
+    browse = "astal/io";
+  })
+  (genLib {
+    flakepkg = "astal3";
+    gir = "";
+    api-ver = "3.0";
+    browse = "astal/gtk3";
+    # extraInputs = [io gtk3 gtk-layer-shell];
+    dependencies = {inherit (dependency) "AstalIO-0.1" "Gtk-3.0";};
+  })
+  (genLib {
+    flakepkg = "astal4";
+    gir = "";
+    api-ver = "4.0";
+    browse = "astal/gtk4";
+    # extraInputs = [io gtk4 gtk4-layer-shell];
+    dependencies = {inherit (dependency) "AstalIO-0.1" "Gtk-4.0";};
+  })
+  (genLib {
+    flakepkg = "apps";
+    gir = "Apps";
+    # extraInputs = [json-glib];
+  })
+  (genLib {
+    flakepkg = "auth";
+    gir = "Auth";
+    authors = "kotontrion";
+    # extraInputs = [pam];
+  })
+  (genLib {
+    flakepkg = "battery";
+    gir = "Battery";
+  })
+  (genLib {
+    flakepkg = "bluetooth";
+    gir = "Bluetooth";
+  })
+  (genLib {
+    flakepkg = "cava";
+    gir = "Cava";
+    authors = "kotontrion";
+  })
+  (genLib {
+    flakepkg = "greet";
+    gir = "Greet";
+    # extraInputs = [json-glib];
+  })
+  (genLib {
+    flakepkg = "hyprland";
+    gir = "Hyprland";
+    # extraInputs = [json-glib];
+  })
+  (genLib {
+    flakepkg = "mpris";
+    gir = "Mpris";
+  })
+  (genLib {
+    flakepkg = "network";
+    gir = "Network";
+    # extraInputs = [networkmanager];
+    dependencies = {inherit (dependency) "NM-1.0";}; # FIXME: why does this not work?
+  })
+  (genLib {
+    flakepkg = "notifd";
+    gir = "Notifd";
+    # extraInputs = [json-glib gdk-pixbuf];
+  })
+  (genLib {
+    flakepkg = "powerprofiles";
+    gir = "PowerProfiles";
+  })
+  (genLib {
+    flakepkg = "river";
+    gir = "River";
+    authors = "kotontrion";
+  })
+  (genLib {
+    flakepkg = "tray";
+    gir = "Tray";
+    authors = "kotontrion";
+    # extraInputs = [gtk3 gdk-pixbuf libdbusmenu-gtk3 json-glib];
+  })
+  (genLib {
+    flakepkg = "wireplumber";
+    gir = "Wp";
+    authors = "kotontrion";
+    dependencies = {inherit (dependency) "WP-0.5";}; # FIXME: why does this not work?
+    # extraInputs = [wireplumber];
+  })
+])) // {meta.description = "Documentation for all libraries generated by gi-docgen";}
