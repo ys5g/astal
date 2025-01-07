@@ -108,6 +108,7 @@ export default defineConfig({
                     { text: "Bluetooth", link: "/guide/libraries/bluetooth" },
                     { text: "Cava", link: "/guide/libraries/cava" },
                     { text: "Greet", link: "/guide/libraries/greet" },
+                    { text: "Http", link: "/guide/libraries/http" },
                     { text: "Hyprland", link: "/guide/libraries/hyprland" },
                     { text: "Mpris", link: "/guide/libraries/mpris" },
                     { text: "Network", link: "/guide/libraries/network" },

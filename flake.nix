@@ -29,6 +29,7 @@
       bluetooth = mkPkg ./lib/bluetooth;
       cava = mkPkg ./lib/cava;
       greet = mkPkg ./lib/greet;
+      http = mkPkg ./lib/http;
       hyprland = mkPkg ./lib/hyprland;
       mpris = mkPkg ./lib/mpris;
       network = mkPkg ./lib/network;
