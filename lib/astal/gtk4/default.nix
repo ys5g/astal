@@ -10,6 +10,7 @@ mkAstalPkg {
     self.packages.${pkgs.system}.io
     pkgs.gtk4
     pkgs.gtk4-layer-shell
+    pkgs.libadwaita
   ];
 
   libname = "astal4";

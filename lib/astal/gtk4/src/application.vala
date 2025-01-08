@@ -1,5 +1,5 @@
 [DBus (name="io.Astal.Application")]
-public class Astal.Application : Gtk.Application, AstalIO.Application {
+public class Astal.Application : Adw.Application, AstalIO.Application {
     private List<Gtk.CssProvider> css_providers = new List<Gtk.CssProvider>();
     private SocketService service;
     private DBusConnection conn;
